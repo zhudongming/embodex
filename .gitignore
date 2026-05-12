@@ -1,0 +1,35 @@
+.worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local agent/editor state
+.claude/settings.local.json
+.codex/
+.agents/
+.vscode/
+.idea/
+
+# OS/editor noise
+.DS_Store
+*~
+*.swp
+
+# Generated logs and large experiment artifacts
+logs/
+runs/
+outputs/
+wandb/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.mp4
+*.mov
+*.avi
+*.mkv
