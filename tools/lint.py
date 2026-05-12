@@ -12,6 +12,11 @@ scope:
 
 规则:
   - 禁: `TBD` / `TODO` / `___` / `<占位>`
+  - kb/papers/*.md 额外禁:
+      * 旧 Obsidian/MOC 链接: `[[moc-*]]` / `[[wiki/...]]`
+      * 仓库外 PDF 路径: `raw/papers/...` / `/home/dm/Documents/...`
+      * frontmatter 旧字段: `appendix_pages:`
+      * `source_quality` 为 PDF 视觉类时缺少 v1.7.2 PDF 完整性字段
   - 跳过 (4 类 literal 全部适用):
       * fenced code block (``` 或 ~~~ 之间的内容)
       * 行内 `code`
@@ -53,6 +58,27 @@ LITERAL_PATTERNS = [
     (re.compile(r"\bTODO\b"), "TODO"),
     (re.compile(r"___"), "___"),
 ]
+
+STRUCTURAL_PATTERNS = [
+    (re.compile(r"\[\[moc-[^\]]+\]\]"), "legacy-moc-link"),
+    (re.compile(r"\[\[wiki/[^\]]+\]\]"), "legacy-wiki-link"),
+    (re.compile(r"\braw/papers/"), "external-pdf-path"),
+    (re.compile(r"/home/dm/Documents/"), "external-pdf-path"),
+]
+
+PDF_VISUAL_SOURCE_QUALITIES = {
+    "pdf_visual",
+    "pdf_visual_partial",
+    "pdf_visual_indirect",
+}
+
+PDF_REQUIRED_FRONTMATTER_FIELDS = {
+    "paper_version",
+    "pdf_pages_total",
+    "pdf_pages_main",
+    "pdf_pages_appendix",
+    "pdf_completeness_verified",
+}
 
 # `<占位>` 候选:首字符非 ! 非 /,内部不含 < > \n
 ANGLE_PATTERN = re.compile(r"<[^!/<>\n][^<>\n]*>")
@@ -133,8 +159,37 @@ def scan_file(path: Path) -> tuple[list[tuple[int, str, str]], str | None]:
     except (OSError, UnicodeDecodeError) as e:
         return [], f"{type(e).__name__}: {e}"
 
+    rel = path.relative_to(ROOT)
+
+    # frontmatter structural checks for instantiated paper notes.
+    lines = text.splitlines()
+    if rel.parts[:2] == ("kb", "papers") and len(lines) >= 2 and lines[0].strip() == "---":
+        end = None
+        for i, line in enumerate(lines[1:], 2):
+            if line.strip() == "---":
+                end = i
+                break
+        if end is not None:
+            fm_lines = lines[1 : end - 1]
+            keys: set[str] = set()
+            source_quality = None
+            for offset, line in enumerate(fm_lines, 2):
+                m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)", line)
+                if not m:
+                    continue
+                key, value = m.group(1), m.group(2).split("#", 1)[0].strip()
+                keys.add(key)
+                if key == "source_quality":
+                    source_quality = value
+                if key == "appendix_pages":
+                    findings.append((offset, "legacy-frontmatter", line.strip()))
+            if source_quality in PDF_VISUAL_SOURCE_QUALITIES:
+                missing = sorted(PDF_REQUIRED_FRONTMATTER_FIELDS - keys)
+                if missing:
+                    findings.append((1, "missing-pdf-frontmatter", f"missing: {', '.join(missing)}"))
+
     in_fence = False
-    for lineno, line in enumerate(text.splitlines(), 1):
+    for lineno, line in enumerate(lines, 1):
         if _FENCE_RE.match(line):
             in_fence = not in_fence
             continue
@@ -143,6 +198,9 @@ def scan_file(path: Path) -> tuple[list[tuple[int, str, str]], str | None]:
         # 用占位符把行内 `code` 抹掉再扫,避免 `<https://x>` 等代码片段误报
         cleaned = _INLINE_CODE_RE.sub(" ", line)
         for pat, label in LITERAL_PATTERNS:
+            if pat.search(cleaned):
+                findings.append((lineno, label, line.strip()))
+        for pat, label in STRUCTURAL_PATTERNS:
             if pat.search(cleaned):
                 findings.append((lineno, label, line.strip()))
         for m in ANGLE_PATTERN.finditer(cleaned):
@@ -209,10 +267,10 @@ def main() -> int:
         print(f"\n❌ {len(read_errors)} file(s) unreadable — lint contract broken", file=sys.stderr)
         return 2
     if placeholder_count:
-        print(f"\n❌ {placeholder_count} placeholder(s) found")
+        print(f"\n❌ {placeholder_count} lint issue(s) found")
         return 1
     if not quiet:
-        print("✓ no placeholders")
+        print("✓ no lint issues")
     return 0
 
 

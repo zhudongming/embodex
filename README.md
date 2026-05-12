@@ -1,9 +1,7 @@
 # embodex
 
 VLA 工程库。构建机器人具身大脑系统,让 AI 服务物理世界。
-
-> 当前 release 周期: 桌面操作 ≥90% · 全身 ≥75% · 推理延迟 ≤100ms。
-> 工作纪律见 `CLAUDE.md`,模板用法见 `templates/README.md`。
+工作纪律见 `CLAUDE.md`,模板用法见 `templates/README.md`。
 
 ## 目录
 
@@ -23,6 +21,8 @@ tasks/                 探索任务 (按需创建,YYYY-MM-<描述>/)
 src/                   代码 (models / data / training / inference / eval / configs / scripts / tests)
 tools/                 codex-session.sh · lint.py
 ```
+
+`tasks/` 和 `src/` 按需创建；冷启动仓库中没有这两个目录是正常状态。
 
 ## 入门
 
@@ -64,8 +64,8 @@ cp kb/techniques/technique.md kb/techniques/$ID.md
 
 ```bash
 source tools/codex-session.sh
-codex_call <session-key>   # 续接 session, 节省 token + 留 rollout
-codex_end  <session-key>   # 任务结束释放
+codex_call <session-key> "你的 prompt"  # 续接 session, 节省 token + 留 rollout
+codex_end  <session-key>                # 任务结束释放
 ```
 
 关键决策在 task 文件 frontmatter 记录 `codex_rollout: <UUID>`。
@@ -76,7 +76,7 @@ codex_end  <session-key>   # 任务结束释放
 python3 tools/lint.py
 ```
 
-扫 `tasks/`、`kb/` 下 `*.md`,防 `TBD` / `TODO` / `___` / `<placeholder>`。模板自身豁免(以 `_` 开头的文件 + stem 含 "template" 的文件 + `kb/{models,datasets,techniques}/{model,dataset,technique}.md`)。
+扫 `tasks/`、`kb/` 下 `*.md`,防 `TBD` / `TODO` / `___` / `<placeholder>`；`kb/papers/` 还会检查旧 Obsidian/MOC 链接、仓库外 PDF 路径和 PDF 完整性字段。模板自身豁免(以 `_` 开头的文件 + stem 含 "template" 的文件 + `kb/{models,datasets,techniques}/{model,dataset,technique}.md`)。
 
 ## 旧版迁移注意
 
